@@ -1,48 +1,58 @@
+use std::fmt::{Display, Formatter, Result};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Vec3 {
-    coords: [f32; 3]
+    coords: [f64; 3]
 }
 
+pub type Point3 = Vec3;
+
 impl Vec3 {
-    pub fn new(coords: [f32; 3]) -> Self {
+    pub fn new(coords: [f64; 3]) -> Self {
         Vec3 { coords }
     }
-    pub fn new_xyz(x: f32, y: f32, z: f32) -> Self {
+    pub fn new_xyz(x: f64, y: f64, z: f64) -> Self {
         Vec3 { coords: [x, y, z] }
     }
 
-    pub fn x(&self) -> f32 { self.coords[0] }
-    pub fn y(&self) -> f32 { self.coords[1] }
-    pub fn z(&self) -> f32 { self.coords[2] }
+    pub fn x(&self) -> f64 { self.coords[0] }
+    pub fn y(&self) -> f64 { self.coords[1] }
+    pub fn z(&self) -> f64 { self.coords[2] }
 
-    pub fn length(&self) -> f32 {
+    pub fn length(&self) -> f64 {
         self.length_squared().sqrt()
     }
 
-    pub fn length_squared(&self) -> f32 {
-        self.x().powi(2) + self.y().powi(2)+ self.z().powi(2)
+    pub fn length_squared(&self) -> f64 {
+        dot(self, self)
     }
+}
 
-    pub fn dot(&self, _other: Self) -> f32 {
-        self.x() * _other.x() + self.y() * _other.y() + self.z() * _other.z()
-    }
+pub fn dot(u: &Vec3, v: &Vec3) -> f64 {
+    u.x() * v.x() + u.y() * v.y() + u.z() * v.z()
+}
 
-    pub fn cross(&self, _other: Self) -> Self {
-        Vec3::new_xyz(
-            self.y() * _other.z() - self.z() * _other.y(),
-            self.z() * _other.x() - self.x() * _other.z(),
-            self.x() * _other.y() - self.y() * _other.x()
-        )
-    }
+pub fn cross(u: &Vec3, v: &Vec3) -> Vec3 {
+    Vec3::new_xyz(
+        u.y() * v.z() - u.z() * v.y(),
+        u.z() * v.x() - u.x() * v.z(),
+        u.x() * v.y() - u.y() * v.x(),
+    )
+}
 
-    pub fn unit_vector(self) -> Self {
-        self / self.length()
+pub fn unit_vector(v: &Vec3) -> Vec3 {
+    *v / v.length()
+}
+
+impl Display for Vec3 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        // Write the vector components separated by spaces.
+        write!(f, "{} {} {}", self.x(), self.y(), self.z())
     }
-}   
+}
 
 impl Neg for Vec3 {
     type Output = Self;
@@ -53,7 +63,7 @@ impl Neg for Vec3 {
 }
 
 impl Index<usize> for Vec3 {
-    type Output = f32;
+    type Output = f64;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.coords[index]
@@ -115,9 +125,9 @@ impl Mul for Vec3 {
     }
 }
 
-impl Mul<f32> for Vec3 {
+impl Mul<f64> for Vec3 {
     type Output = Self;
-    fn mul(self, _rhs: f32) -> Self::Output {
+    fn mul(self, _rhs: f64) -> Self::Output {
         Vec3::new_xyz(
             self.x() * _rhs,
             self.y() * _rhs,
@@ -126,17 +136,25 @@ impl Mul<f32> for Vec3 {
     }
 }
 
-impl MulAssign<f32> for Vec3 {
-    fn mul_assign(&mut self, _rhs: f32) {
+impl Mul<Vec3> for f64 {
+    type Output = Vec3;
+
+    fn mul(self, _rhs: Vec3) -> Self::Output {
+        _rhs * self
+    }
+}
+
+impl MulAssign<f64> for Vec3 {
+    fn mul_assign(&mut self, _rhs: f64) {
         self.coords[0] *= _rhs;
         self.coords[1] *= _rhs;
         self.coords[2] *= _rhs;
     }
 }
 
-impl Div<f32> for Vec3 {
+impl Div<f64> for Vec3 {
     type Output = Self;
-    fn div(self, _rhs: f32) -> Self::Output {
+    fn div(self, _rhs: f64) -> Self::Output {
         Vec3::new_xyz(
             self.x() / _rhs,
             self.y() / _rhs,
@@ -145,8 +163,8 @@ impl Div<f32> for Vec3 {
     }
 }
 
-impl DivAssign<f32> for Vec3 {
-    fn div_assign(&mut self, _rhs: f32) {
+impl DivAssign<f64> for Vec3 {
+    fn div_assign(&mut self, _rhs: f64) {
         self.coords[0] /= _rhs;
         self.coords[1] /= _rhs;
         self.coords[2] /= _rhs;
@@ -156,7 +174,7 @@ impl DivAssign<f32> for Vec3 {
 // implement unittests for vec3
 #[cfg(test)]
 mod tests {
-    use super::Vec3;
+    use super::{cross, dot, unit_vector, Vec3};
 
     #[test]
     fn test_new() {
@@ -240,7 +258,15 @@ mod tests {
     }
 
     #[test]
-    fn test_mul_scalar() {
+    fn test_mul_scalar_before() {
+        let v = Vec3::new_xyz(1.0, 2.0, 3.0);
+        let scalar = 3.0;
+        let expected = Vec3::new_xyz(3.0, 6.0, 9.0);
+        assert_eq!(scalar * v, expected);
+    }
+
+    #[test]
+    fn test_mul_scalar_after() {
         let v = Vec3::new_xyz(1.0, 2.0, 3.0);
         let scalar = 3.0;
         let expected = Vec3::new_xyz(3.0, 6.0, 9.0);
@@ -279,7 +305,7 @@ mod tests {
     #[test]
     fn test_length() {
         let v = Vec3::new_xyz(1.0, 2.0, 3.0);
-        assert_eq!(v.length(), 14.0_f32.sqrt());
+        assert_eq!(v.length(), 14.0_f64.sqrt());
     }
 
     #[test]
@@ -287,7 +313,7 @@ mod tests {
         let v1 = Vec3::new_xyz(1.0, 2.0, 3.0);
         let v2 = Vec3::new_xyz(4.0, 5.0, 6.0);
         // 1*4 + 2*5 + 3*6 = 4 + 10 + 18 = 32
-        assert_eq!(v1.dot(v2), 32.0);
+        assert_eq!(dot(&v1, &v2), 32.0);
     }
 
     #[test]
@@ -296,7 +322,7 @@ mod tests {
         let v2 = Vec3::new_xyz(4.0, 5.0, 6.0);
         // (2*6 - 3*5, 3*4 - 1*6, 1*5 - 2*4) = (-3, 6, -3)
         let expected = Vec3::new_xyz(-3.0, 6.0, -3.0);
-        assert_eq!(v1.cross(v2), expected);
+        assert_eq!(cross(&v1, &v2), expected);
     }
 
     #[test]
@@ -304,6 +330,12 @@ mod tests {
         // Vector with length 5
         let v = Vec3::new_xyz(0.0, 3.0, 4.0);
         let expected = Vec3::new_xyz(0.0, 0.6, 0.8);
-        assert_eq!(v.unit_vector(), expected);
+        assert_eq!(unit_vector(&v), expected);
+    }
+
+    #[test]
+    fn test_display() {
+        let v = Vec3::new_xyz(1.1, 2.2, 3.3);
+        assert_eq!(format!("{}", v), "1.1 2.2 3.3");
     }
 }
