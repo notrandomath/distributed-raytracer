@@ -1,16 +1,24 @@
 mod vec3;
 mod colors;
 mod ray;
+mod hittable;
+mod hittable_list;
+mod sphere;
+mod prelude;
 
-use vec3::*;
-use colors::*;
-use ray::*;
+use crate::prelude::*;
+use crate::hittable::{Hittable, HitRecord};
+use crate::sphere::Sphere;
+use crate::hittable_list::HittableList;
 
-use std::fs::File;
-use std::io::{Result, Write, BufWriter, stderr};
 const OUTPUT_FILENAME: &str = "img.ppm";
 
-fn ray_color(r: &Ray) -> Color {
+fn ray_color(r: &Ray, world: &dyn Hittable) -> Color {
+    let mut rec: HitRecord = HitRecord::default();
+    if world.hit(r, 0., INFINITY, &mut rec) {
+        return 0.5 * (rec.normal + Color::new_xyz(1.,1.,1.));
+    }
+
     let unit_direction: Vec3 = unit_vector(r.direction());
     let a = 0.5*(unit_direction.y() + 1.0);
     (1.0-a)*Color::new([1.0, 1.0, 1.0]) + a*Color::new([0.5, 0.7, 1.0])
@@ -30,6 +38,13 @@ fn main() -> Result<()>  {
     let viewport_height = 2.0;
     let viewport_width = viewport_height * (image_width as f64 / image_height as f64);
     let camera_center = Point3::new([0., 0., 0.]);
+
+    // World
+
+    let mut world: HittableList = HittableList::new();
+
+    world.add(Rc::new(Sphere::new(&Point3::new_xyz(0.,0.,-1.), 0.5)));
+    world.add(Rc::new(Sphere::new(&Point3::new_xyz(0.,-100.5,-1.), 100.)));
 
     // Calculate the vectors across the horizontal and down the vertical viewport edges.
     let viewport_u = Vec3::new([viewport_width, 0., 0.]);
@@ -57,7 +72,7 @@ fn main() -> Result<()>  {
             let ray_direction = pixel_center - camera_center;
             let r = Ray::new(&camera_center, &ray_direction);
 
-            let pixel_color: Color = ray_color(&r);
+            let pixel_color: Color = ray_color(&r, &world);
             write_color(&mut writer, &pixel_color)?;
         }
     }
