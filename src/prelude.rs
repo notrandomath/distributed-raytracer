@@ -1,7 +1,7 @@
 //! A prelude for the ray tracer, containing common imports.
 
 // Re-export common types from our modules.
-pub use crate::vec3::{Point3, Vec3, dot, unit_vector};
+pub use crate::vec3::*;
 pub use crate::ray::Ray;
 pub use crate::colors::{Color, write_color};
 pub use crate::interval::Interval;

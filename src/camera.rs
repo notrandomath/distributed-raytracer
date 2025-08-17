@@ -6,6 +6,7 @@ pub struct Camera {
     pub aspect_ratio: f64,
     pub image_width: i32,
     pub samples_per_pixel: i32,
+    pub max_depth: i32,
     image_height: i32,
     pixel_samples_scale: f64,
     center: Point3,
@@ -20,6 +21,7 @@ impl Camera {
         camera.aspect_ratio = 1.0;
         camera.image_width = 100;
         camera.samples_per_pixel = 10;
+        camera.max_depth = 10;
         camera
     }
 
@@ -64,7 +66,7 @@ impl Camera {
                 let mut pixel_color: Color = Color::new_xyz(0.,0.,0.);
                 for _sample in 0..self.samples_per_pixel {
                     let r: Ray = self.get_ray(i, j);
-                    pixel_color += self.ray_color(&r, world);
+                    pixel_color += self.ray_color(&r, self.max_depth, world);
                 }
                 write_color(writer, &(self.pixel_samples_scale * pixel_color))?;
             }
@@ -94,10 +96,19 @@ impl Camera {
         return Vec3::new_xyz(random_f64() - 0.5, random_f64() - 0.5, 0.);
     }
 
-    fn ray_color(&self, r: &Ray, world: &dyn Hittable) -> Color {
+    fn ray_color(&self, r: &Ray, depth: i32, world: &dyn Hittable) -> Color {
+        if depth <= 0 {
+            return Color::new([0.,0.,0.]);
+        }
+
         let mut rec: HitRecord = HitRecord::default();
-        if world.hit(r, 0., INFINITY, &mut rec) {
-            return 0.5 * (rec.normal + Color::new_xyz(1.,1.,1.));
+        if world.hit(r, Interval::new_min_max(0.001, INFINITY), &mut rec) {
+            let mut scattered: Ray = Ray::default();
+            let mut attenuation: Color = Color::new([0.,0.,0.]);
+            if rec.mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
+                return attenuation * self.ray_color(&scattered, depth-1, world);
+            }
+            return Color::new([0.,0.,0.]);
         }
 
         let unit_direction: Vec3 = unit_vector(r.direction());

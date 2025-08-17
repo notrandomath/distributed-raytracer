@@ -2,6 +2,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
+use crate::prelude::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec3 {
@@ -29,6 +30,19 @@ impl Vec3 {
     pub fn length_squared(&self) -> f64 {
         dot(self, self)
     }
+
+    pub fn random() -> Vec3 {
+        return Self::new_xyz(random_f64(), random_f64(), random_f64());
+    }
+
+    pub fn random_range(min: f64, max: f64) -> Vec3 {
+        return Self::new_xyz(random_f64_range(min,max), random_f64_range(min,max), random_f64_range(min,max));
+    }
+
+    pub fn near_zero(&self) -> bool {
+        let s = 1e-8;
+        self.x().abs() < s && self.y().abs() < s && self.z().abs() < s
+    }
 }
 
 pub fn dot(u: &Vec3, v: &Vec3) -> f64 {
@@ -41,6 +55,34 @@ pub fn cross(u: &Vec3, v: &Vec3) -> Vec3 {
         u.z() * v.x() - u.x() * v.z(),
         u.x() * v.y() - u.y() * v.x(),
     )
+}
+
+pub fn random_unit_vector() -> Vec3 {
+    loop {
+        let p = Vec3::random_range(-1.,1.);
+        let lensq = p.length_squared();
+        if 1e-160 <= lensq && lensq <= 1. {
+            return p / lensq.sqrt();
+        }
+    }
+}
+
+pub fn random_on_hemisphere(normal: &Vec3) -> Vec3 {
+    let on_unit_sphere: Vec3 = random_unit_vector();
+    if dot(&on_unit_sphere, normal) > 0.0 { 
+        // In the same hemisphere as the normal
+        return on_unit_sphere;
+    } else {
+        // In the opposite hemisphere, so turn negative
+        return -on_unit_sphere;
+    }
+}
+
+pub fn reflect(v: &Vec3, n: &Vec3) -> Vec3 {
+    // dot(v,n)*(*n) is scaling n by projection of v onto n (no need to divide since n is unit)
+    let b =  dot(v,n)*(*n);
+    // v goes into the surface, so subtracting 2 of scaled n makes it reflect in opposite direction
+    *v - 2.0*b
 }
 
 pub fn unit_vector(v: &Vec3) -> Vec3 {

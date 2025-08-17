@@ -1,10 +1,13 @@
 use crate::vec3::{Vec3, Point3, dot};
 use crate::ray::Ray;
+use crate::prelude::*;
+use crate::material::{Material, DefaultMaterial};
 
-#[derive(Default, Copy, Clone)]
+#[derive(Clone)]
 pub struct HitRecord {
     pub p: Point3,
     pub normal: Vec3,
+    pub mat: Rc<dyn Material>,
     pub t: f64,
     pub front_face: bool
 } 
@@ -20,5 +23,19 @@ impl HitRecord {
 }
 
 pub trait Hittable {
-    fn hit(&self, r: &Ray, ray_tmin: f64, ray_tmax: f64, hit_record: &mut HitRecord) -> bool;
+    fn hit(&self, r: &Ray, ray_t: Interval, hit_record: &mut HitRecord) -> bool;
+}
+
+impl Default for HitRecord {
+    fn default() -> Self {
+        // Provide a default implementation for HitRecord.
+        // Note that `material` is set to `None` as there's no default `Material` trait object.
+        HitRecord {
+            p: Point3::default(),
+            normal: Vec3::default(),
+            mat: Rc::new(DefaultMaterial::default()),
+            t: 0.0,
+            front_face: false,
+        }
+    }
 }
