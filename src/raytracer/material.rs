@@ -1,5 +1,5 @@
-use crate::prelude::*;
-use crate::hittable::HitRecord;
+use crate::raytracer::prelude::*;
+use crate::raytracer::hittable::HitRecord;
 
 
 pub trait Material {

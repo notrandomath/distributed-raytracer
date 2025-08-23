@@ -1,7 +1,7 @@
-use crate::vec3::{Vec3, Point3, dot};
-use crate::ray::Ray;
-use crate::prelude::*;
-use crate::material::{Material, DefaultMaterial};
+use crate::raytracer::vec3::{Vec3, Point3, dot};
+use crate::raytracer::ray::Ray;
+use crate::raytracer::prelude::*;
+use crate::raytracer::material::{Material, DefaultMaterial};
 
 #[derive(Clone)]
 pub struct HitRecord {

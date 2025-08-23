@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
 };
-use crate::prelude::*;
+use crate::raytracer::prelude::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct Vec3 {

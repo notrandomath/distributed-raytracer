@@ -1,6 +1,6 @@
-use crate::prelude::*;
-use crate::hittable::{Hittable, HitRecord};
-use crate::material::Material;
+use crate::raytracer::prelude::*;
+use crate::raytracer::hittable::{Hittable, HitRecord};
+use crate::raytracer::material::Material;
 
 pub struct Sphere {
     center: Point3,

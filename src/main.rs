@@ -1,19 +1,8 @@
-mod vec3;
-mod colors;
-mod ray;
-mod hittable;
-mod hittable_list;
-mod sphere;
-mod prelude;
-mod interval;
-mod camera;
-mod material;
-
-use crate::prelude::*;
-use crate::sphere::Sphere;
-use crate::hittable_list::HittableList;
-use crate::camera::Camera;
-use crate::material::*;
+use dray_lib::raytracer::prelude::*;
+use dray_lib::raytracer::sphere::Sphere;
+use dray_lib::raytracer::hittable_list::HittableList;
+use dray_lib::raytracer::camera::Camera;
+use dray_lib::raytracer::material::*;
 
 const OUTPUT_FILENAME: &str = "img.ppm";
 

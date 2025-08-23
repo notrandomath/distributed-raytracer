@@ -1,10 +1,10 @@
 //! A prelude for the ray tracer, containing common imports.
 
 // Re-export common types from our modules.
-pub use crate::vec3::*;
-pub use crate::ray::Ray;
-pub use crate::colors::{Color, write_color};
-pub use crate::interval::Interval;
+pub use crate::raytracer::vec3::*;
+pub use crate::raytracer::ray::Ray;
+pub use crate::raytracer::colors::{Color, write_color};
+pub use crate::raytracer::interval::Interval;
 
 // Re-export common standard library items.
 pub use std::rc::Rc;

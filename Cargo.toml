@@ -5,3 +5,21 @@ edition = "2024"
 
 [dependencies]
 rand = "*"
+bincode = "*"
+serde = {version = "*", features = ["derive"]}
+
+[lib]
+name = "dray_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
+
+[[bin]]
+name = "server"
+path = "src/bin/run_server.rs"
+
+[[bin]]
+name = "client"
+path = "src/bin/run_client.rs"

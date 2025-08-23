@@ -1,5 +1,5 @@
-use crate::prelude::*;
-use crate::hittable::{Hittable, HitRecord};
+use crate::raytracer::prelude::*;
+use crate::raytracer::hittable::{Hittable, HitRecord};
 
 #[derive(Default)]
 pub struct Camera {

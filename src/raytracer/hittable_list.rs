@@ -1,5 +1,5 @@
-use crate::prelude::*;
-use crate::hittable::{Hittable, HitRecord};
+use crate::raytracer::prelude::*;
+use crate::raytracer::hittable::{Hittable, HitRecord};
 
 pub struct HittableList {
     pub objects: Vec<Rc<dyn Hittable>>

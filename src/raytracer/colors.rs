@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::raytracer::prelude::*;
 
 pub type Color = Vec3;
 
