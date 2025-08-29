@@ -1,18 +1,36 @@
 use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::HitRecord;
 
-
+#[typetag::serde(tag = "type")]
 pub trait Material {
+    // returns true if scattered otherwise false if absorbed
+    fn scatter(&self, _r_in: &Ray, _hit_record: &HitRecord, _attenuation: &mut Color, _scattered: &mut Ray) -> bool;
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct DefaultMaterial {}
+
+#[typetag::serde]
+impl Material for DefaultMaterial {
     fn scatter(&self, _r_in: &Ray, _hit_record: &HitRecord, _attenuation: &mut Color, _scattered: &mut Ray) -> bool {
         // returns true if scattered otherwise false if absorbed
         return false;
     }
 }
 
-#[derive(Default)]
-pub struct DefaultMaterial {}
-impl Material for DefaultMaterial {}
+#[derive(Serialize, Deserialize)]
+pub struct Transparent {}
 
+#[typetag::serde]
+impl Material for Transparent {
+    fn scatter(&self, r_in: &Ray, _hit_record: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
+        *attenuation = Color::new([1.0, 1.0, 1.0]);
+        *scattered = r_in.clone();
+        return true;
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Lambertian {
     albedo: Color
 } 
@@ -23,7 +41,7 @@ impl Lambertian {
     }
 }
 
-
+#[typetag::serde]
 impl Material for Lambertian {
     fn scatter(&self, _r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         let mut scatter_direction = rec.normal + random_unit_vector();
@@ -38,6 +56,7 @@ impl Material for Lambertian {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Metal {
     albedo: Color,
     fuzz: f64
@@ -49,7 +68,7 @@ impl Metal {
     }
 }
 
-
+#[typetag::serde]
 impl Material for Metal {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         let mut reflected: Vec3 = reflect(r_in.direction(), &rec.normal);
@@ -61,6 +80,7 @@ impl Material for Metal {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Dialectric {
     refraction_index: f64
 }
@@ -78,6 +98,7 @@ impl Dialectric {
     }
 }
 
+#[typetag::serde]
 impl Material for Dialectric {
     fn scatter(&self, r_in: &Ray, rec: &HitRecord, attenuation: &mut Color, scattered: &mut Ray) -> bool {
         *attenuation = Color::new([1.0, 1.0, 1.0]);

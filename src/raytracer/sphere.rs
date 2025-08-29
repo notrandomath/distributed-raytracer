@@ -2,6 +2,7 @@ use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::{Hittable, HitRecord};
 use crate::raytracer::material::Material;
 
+#[derive(Serialize, Deserialize)]
 pub struct Sphere {
     center: Point3,
     radius: f64,
@@ -12,8 +13,17 @@ impl Sphere {
     pub fn new(center: &Point3, radius: f64, mat: Rc<dyn Material>) -> Self {
         Sphere { center: *center, radius: f64::max(radius, 0.), mat}
     }
+
+    pub fn center(&self) -> Vec3 {
+        return self.center;
+    }
+    
+    pub fn radius(&self) -> f64 {
+        return self.radius;
+    }
 }
 
+#[typetag::serde]
 impl Hittable for Sphere {
     fn hit(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         let oc: Vec3 = self.center - *r.origin();

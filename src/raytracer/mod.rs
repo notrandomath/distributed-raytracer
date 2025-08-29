@@ -1,3 +1,4 @@
+pub mod bounding_box;
 pub mod camera;
 pub mod colors;
 pub mod hittable_list;

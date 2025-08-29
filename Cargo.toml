@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 rand = "*"
-bincode = "*"
-serde = {version = "*", features = ["derive"]}
+bincode = {version = "*", features = ["serde"]}
+serde = {version = "*", features = ["derive", "rc"]}
+typetag = "*"
 
 [lib]
 name = "dray_lib"

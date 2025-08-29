@@ -4,7 +4,7 @@ use std::ops::{
 };
 use crate::raytracer::prelude::*;
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Vec3 {
     coords: [f64; 3]
 }
@@ -43,6 +43,22 @@ impl Vec3 {
         let s = 1e-8;
         self.x().abs() < s && self.y().abs() < s && self.z().abs() < s
     }
+}
+
+pub fn min_vec(u: &Vec3, v: &Vec3) -> Vec3 {
+    Vec3::new_xyz(
+        f64::min(u.x(), v.x()),
+        f64::min(u.y(), v.y()),
+        f64::min(u.z(), v.z()),
+    )
+}
+
+pub fn max_vec(u: &Vec3, v: &Vec3) -> Vec3 {
+    Vec3::new_xyz(
+        f64::max(u.x(), v.x()),
+        f64::max(u.y(), v.y()),
+        f64::max(u.z(), v.z()),
+    )
 }
 
 pub fn dot(u: &Vec3, v: &Vec3) -> f64 {
@@ -221,6 +237,17 @@ impl Div<f64> for Vec3 {
     }
 }
 
+impl Div<Vec3> for Vec3 {
+    type Output = Self;
+    fn div(self, _rhs: Vec3) -> Self::Output {
+        Vec3::new_xyz(
+            self.x() / _rhs.x(),
+            self.y() / _rhs.y(),
+            self.z() / _rhs.z()
+        )
+    }
+}
+
 impl DivAssign<f64> for Vec3 {
     fn div_assign(&mut self, _rhs: f64) {
         self.coords[0] /= _rhs;
@@ -232,7 +259,7 @@ impl DivAssign<f64> for Vec3 {
 // implement unittests for vec3
 #[cfg(test)]
 mod tests {
-    use super::{cross, dot, unit_vector, Vec3};
+    use super::{cross, dot, unit_vector, min_vec, max_vec, Vec3};
 
     #[test]
     fn test_new() {
@@ -344,6 +371,30 @@ mod tests {
         let scalar = 3.0;
         let expected = Vec3::new_xyz(1.0, 2.0, 3.0);
         assert_eq!(v / scalar, expected);
+    }
+
+    #[test]
+    fn test_div_vector() {
+        let v1 = Vec3::new_xyz(1.0, 2.0, 3.0);
+        let v2 = Vec3::new_xyz(4.0, 5.0, 6.0);
+        let expected = Vec3::new_xyz(0.25, 0.4, 0.5);
+        assert_eq!(v1 / v2, expected);
+    }
+
+    #[test]
+    fn test_min_vec() {
+        let v1 = Vec3::new_xyz(1.0, 5.0, 3.0);
+        let v2 = Vec3::new_xyz(4.0, 2.0, 6.0);
+        let expected = Vec3::new_xyz(1.0, 2.0, 3.0);
+        assert_eq!(min_vec(&v1, &v2), expected);
+    }
+
+    #[test]
+    fn test_max_vec() {
+        let v1 = Vec3::new_xyz(1.0, 5.0, 3.0);
+        let v2 = Vec3::new_xyz(4.0, 2.0, 6.0);
+        let expected = Vec3::new_xyz(4.0, 5.0, 6.0);
+        assert_eq!(max_vec(&v1, &v2), expected);
     }
 
     #[test]

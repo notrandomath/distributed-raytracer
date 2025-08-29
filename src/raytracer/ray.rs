@@ -1,6 +1,6 @@
-use crate::raytracer::vec3::{Vec3, Point3};
+use crate::raytracer::prelude::*;
 
-#[derive(Default)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Ray {
     origin: Point3,
     direction: Vec3,

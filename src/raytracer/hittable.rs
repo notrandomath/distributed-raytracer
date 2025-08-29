@@ -2,8 +2,9 @@ use crate::raytracer::vec3::{Vec3, Point3, dot};
 use crate::raytracer::ray::Ray;
 use crate::raytracer::prelude::*;
 use crate::raytracer::material::{Material, DefaultMaterial};
+use std::any::Any;
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct HitRecord {
     pub p: Point3,
     pub normal: Vec3,
@@ -22,7 +23,8 @@ impl HitRecord {
     }
 }
 
-pub trait Hittable {
+#[typetag::serde(tag = "type")]
+pub trait Hittable: Any {
     fn hit(&self, r: &Ray, ray_t: Interval, hit_record: &mut HitRecord) -> bool;
 }
 

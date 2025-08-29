@@ -1,5 +1,6 @@
-use dray_lib::distributed::client::run_client;
+use dray_lib::distributed::client::Client;
 
 fn main() {
-    let _ = run_client();
+    let mut client = Client::new();
+    let _ = client.run();
 }

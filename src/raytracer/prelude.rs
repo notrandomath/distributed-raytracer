@@ -12,6 +12,7 @@ pub use std::f64::INFINITY;
 pub use std::f64::consts::PI;
 pub use std::fs::File;
 pub use std::io::{Result, Write, BufWriter, stderr};
+pub use serde::{Serialize, Deserialize};
 
 #[inline]
 pub fn degrees_to_radians(degrees: f64) -> f64 {
