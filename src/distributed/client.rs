@@ -1,7 +1,7 @@
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream, UdpSocket};
 use std::time::Duration;
 use crate::distributed::config::{MULTICAST_ADDR, MULTICAST_PORT};
-use crate::distributed::messages::{ObjectServerMessage, ServerDiscoveryMessage, ServerType, NUM_SERVER_TYPES};
+use crate::distributed::messages::{ObjectServerMessage, ObjectServerMessageType, ServerDiscoveryMessage, ServerType, NUM_SERVER_TYPES};
 use crate::raytracer::bounding_box::BoundingBox;
 use crate::raytracer::hittable_list::HittableList;
 use crate::raytracer::material::*;
@@ -17,13 +17,10 @@ pub struct Client {
     object_map: HashMap<usize, SocketAddrV4>,
 }
 
-pub fn send_tcp_message<T: Serialize>(socket_addr: SocketAddrV4, message: &T) -> Result<String> {
-    println!("Attempting to connect to {}", socket_addr);
-    
+pub fn send_tcp_message<T: Serialize>(socket_addr: &SocketAddrV4, message: &T) -> Result<String> {    
     // 1. Establish the connection
     let mut stream = match TcpStream::connect(socket_addr) {
         Ok(s) => {
-            println!("✅ Successfully connected to the server!");
             s
         },
         Err(e) => {
@@ -62,7 +59,7 @@ impl Client {
     }
 
     fn create_bounding_volumes(&mut self) {
-        let n = self.server_directory[ServerType::Ray as usize].len();
+        let n = self.server_directory[ServerType::Object as usize].len();
         let mut cur_i: usize = 0;
         for a in (-10..=10).step_by(4) {
             for b in (-10..=10).step_by(4) {
@@ -74,7 +71,7 @@ impl Client {
                     if b == -10 {-1e6} else {(b as f64) - 4.},
                     if b == 10 {1e6} else {(b as f64) + 4.},
                 );
-                self.object_map.insert(self.boxes.len(), self.server_directory[ServerType::Ray as usize][cur_i]);
+                self.object_map.insert(self.boxes.len(), self.server_directory[ServerType::Object as usize][cur_i]);
                 let new_box = Rc::new(bv);
                 self.boxes.push(new_box.clone());
                 self.boxes_hittable.add(new_box.clone());
@@ -84,8 +81,8 @@ impl Client {
     }
 
     fn create_objects(&self) {
-        for a in (-10..=10).step_by(4) {
-            for b in (-10..=10).step_by(4) {
+        for a in -11..11 {
+            for b in -11..11 {
                 let center: Point3 = Point3::new_xyz((a as f64) + 0.9*random_f64(), 0.2, (b as f64) + 0.9*random_f64());
                 if (center - Point3::new_xyz(4., 0.2, 0.)).length() > 0.9 {
                     let choose_mat = random_f64();
@@ -109,7 +106,7 @@ impl Client {
                     for (index, aabb) in self.boxes.iter().enumerate() {
                         if aabb.intersect_sphere(&new_sphere) {
                             let _ = send_tcp_message(
-                                self.object_map[&index], 
+                                &self.object_map[&index], 
                                 &ObjectServerMessage::new_object_add(new_sphere.clone())
                             );
                         }
@@ -140,7 +137,7 @@ impl Client {
                         &buf[..num_bytes], bincode::config::standard()).unwrap();
                     if !self.server_directory[msg.server_type as usize].contains(&msg.socket_addr) {
                         self.server_directory[msg.server_type as usize].push(msg.socket_addr);
-                        send_tcp_message(msg.socket_addr, &ObjectServerMessage::new_deregistration())?;
+                        send_tcp_message(&msg.socket_addr, &ObjectServerMessage::new_no_data(ObjectServerMessageType::Deregistration))?;
                     }
                 }
                 // Error: Check if it's a timeout error
@@ -166,6 +163,14 @@ impl Client {
         println!("Adding objects...");
         self.create_bounding_volumes();
         self.create_objects();
+
+        println!("Printing objects...");
+        for addr in self.server_directory[ServerType::Object as usize].iter() {
+            let _result = send_tcp_message(
+                addr, 
+                &ObjectServerMessage::new_no_data(ObjectServerMessageType::PrintObjects)
+            );
+        }
 
         Ok(())
     }

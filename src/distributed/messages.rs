@@ -39,6 +39,7 @@ pub enum ObjectServerMessageType {
     Deregistration,
     Registration,
     AddObject,
+    PrintObjects,
     CheckHit,
 }
 
@@ -53,9 +54,9 @@ pub struct ObjectServerMessage {
 }
 
 impl ObjectServerMessage {
-    pub fn new_deregistration() -> Self {
+    pub fn new_no_data(message_type: ObjectServerMessageType) -> Self {
         ObjectServerMessage {
-            message_type: ObjectServerMessageType::Deregistration,
+            message_type: message_type,
             object_add: None,
             ray: None,
             ray_t: None,

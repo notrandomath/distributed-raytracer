@@ -1,9 +1,8 @@
 use dray_lib::distributed::server::run_server;
-use dray_lib::distributed::config::{TCP_START_PORT, TCP_END_PORT};
+use dray_lib::distributed::config::{TCP_START_PORT, TCP_END_PORT, NUM_OBJ_SERVERS, NUM_RAY_SERVERS};
 use std::thread::sleep;
 use std::time::Duration;
 use std::{net::{Ipv4Addr, TcpListener}, thread};
-
 
 fn find_available_port_in_range(start_port: u16, end_port: u16) -> Option<u16> {
     for port in start_port..=end_port {
@@ -22,10 +21,13 @@ fn find_available_port_in_range(start_port: u16, end_port: u16) -> Option<u16> {
 fn main() {
     let mut handles = vec![];
 
-    for i in 0..3 {
+    for i in 0..NUM_OBJ_SERVERS {
         let handle = thread::spawn(move || {
             println!("Starting server thread #{}", i);
-            run_server(find_available_port_in_range(TCP_START_PORT, TCP_END_PORT).expect("No available port found"));
+            run_server(
+                find_available_port_in_range(TCP_START_PORT, TCP_END_PORT).expect("No available port found"),
+                true
+            );
         });
         sleep(Duration::from_secs_f32(0.5));
         handles.push(handle);
