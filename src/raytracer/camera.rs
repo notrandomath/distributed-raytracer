@@ -1,6 +1,20 @@
 use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::{Hittable, HitRecord};
 
+#[derive(Hash, PartialEq, Eq, Serialize, Deserialize, Clone)]
+pub struct PixelIndexEntry {
+    pub pixel_i: i32,
+    pub pixel_j: i32,
+    pub pixel_sample_num: i32
+} 
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct RayColorEntry {
+    pub current_ray: Ray,
+    pub current_dept: i32,
+    pub current_color: Color
+} 
+
 #[derive(Default)]
 pub struct Camera {
     pub aspect_ratio: f64,
@@ -143,7 +157,7 @@ impl Camera {
         let mut rec: HitRecord = HitRecord::default();
         if world.hit(r, Interval::new_min_max(0.001, INFINITY), &mut rec) {
             let mut scattered: Ray = Ray::default();
-            let mut attenuation: Color = Color::new([0.,0.,0.]);
+            let mut attenuation: Color = Color::default();
             if rec.mat.scatter(r, &rec, &mut attenuation, &mut scattered) {
                 return attenuation * self.ray_color(&scattered, depth-1, world);
             }

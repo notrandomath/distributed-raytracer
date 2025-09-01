@@ -1,5 +1,7 @@
-use dray_lib::distributed::server::run_server;
-use dray_lib::distributed::config::{TCP_START_PORT, TCP_END_PORT, NUM_OBJ_SERVERS, NUM_RAY_SERVERS};
+use dray_lib::distributed::orchestrator_server::run_orchestrator;
+use dray_lib::distributed::server_common::run_server;
+use dray_lib::distributed::config::{NUM_OBJ_SERVERS, NUM_RAY_SERVERS, ORCHESTRATOR_PORT, TCP_END_PORT, TCP_START_PORT};
+use std::net::SocketAddrV4;
 use std::thread::sleep;
 use std::time::Duration;
 use std::{net::{Ipv4Addr, TcpListener}, thread};
@@ -18,7 +20,8 @@ fn find_available_port_in_range(start_port: u16, end_port: u16) -> Option<u16> {
     None
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut handles = vec![];
 
     for i in 0..NUM_OBJ_SERVERS {
@@ -32,6 +35,8 @@ fn main() {
         sleep(Duration::from_secs_f32(0.5));
         handles.push(handle);
     }
+
+    run_orchestrator(SocketAddrV4::new(Ipv4Addr::LOCALHOST, ORCHESTRATOR_PORT)).await;
 
     // Wait for all server threads to finish
     for handle in handles {

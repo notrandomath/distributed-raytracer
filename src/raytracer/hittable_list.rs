@@ -1,9 +1,10 @@
+use std::sync::Arc;
 use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::{Hittable, HitRecord};
 
 #[derive(Serialize, Deserialize)]
 pub struct HittableList {
-    pub objects: Vec<Rc<dyn Hittable>>
+    pub objects: Vec<Arc<dyn Hittable>>
 }
 
 impl HittableList {
@@ -11,7 +12,11 @@ impl HittableList {
         HittableList { objects: Vec::new() }
     }
 
-    pub fn new_w_obj(object: Rc<dyn Hittable>) -> Self {
+    pub fn new_w_objs(objects: Vec<Arc<dyn Hittable>>) -> Self {
+        HittableList { objects }
+    }
+
+    pub fn new_w_obj(object: Arc<dyn Hittable>) -> Self {
         let mut list = Self::new();
         list.add(object);
         list
@@ -21,7 +26,7 @@ impl HittableList {
         self.objects.clear();
     }
 
-    pub fn add(&mut self, object: Rc<dyn Hittable>) {
+    pub fn add(&mut self, object: Arc<dyn Hittable>) {
         self.objects.push(object);
     }
 
@@ -29,7 +34,7 @@ impl HittableList {
         self.objects.len()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Rc<dyn Hittable>> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Arc<dyn Hittable>> {
         self.objects.iter()
     }
 }

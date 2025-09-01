@@ -7,7 +7,7 @@ use crate::raytracer::material::{Material, DefaultMaterial};
 pub struct HitRecord {
     pub p: Point3,
     pub normal: Vec3,
-    pub mat: Rc<dyn Material>,
+    pub mat: Arc<dyn Material>,
     pub t: f64,
     pub front_face: bool
 } 
@@ -23,7 +23,7 @@ impl HitRecord {
 }
 
 #[typetag::serde(tag = "type")]
-pub trait Hittable {
+pub trait Hittable: Send + Sync {
     fn hit(&self, r: &Ray, ray_t: Interval, hit_record: &mut HitRecord) -> bool;
 }
 
@@ -34,7 +34,7 @@ impl Default for HitRecord {
         HitRecord {
             p: Point3::default(),
             normal: Vec3::default(),
-            mat: Rc::new(DefaultMaterial::default()),
+            mat: Arc::new(DefaultMaterial::default()),
             t: 0.0,
             front_face: false,
         }

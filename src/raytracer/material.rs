@@ -2,7 +2,7 @@ use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::HitRecord;
 
 #[typetag::serde(tag = "type")]
-pub trait Material {
+pub trait Material : Send + Sync {
     // returns true if scattered otherwise false if absorbed
     fn scatter(&self, _r_in: &Ray, _hit_record: &HitRecord, _attenuation: &mut Color, _scattered: &mut Ray) -> bool;
 }

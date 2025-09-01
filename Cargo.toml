@@ -8,6 +8,9 @@ rand = "*"
 bincode = {version = "*", features = ["serde"]}
 serde = {version = "*", features = ["derive", "rc"]}
 typetag = "*"
+tokio-tungstenite = { version = "*", features = ["native-tls"] }
+tokio = { version = "*", features = ["full"] }
+futures-util = "*"
 
 [lib]
 name = "dray_lib"

@@ -62,13 +62,13 @@ impl Hittable for BoundingBox {
             if ray_t.surrounds(t_min) {
                 rec.t = t_min;
                 rec.p = r.at(t_min);
-                rec.mat = Rc::new(Transparent{});
+                rec.mat = Arc::new(Transparent{});
                 return true;
             }
             if ray_t.surrounds(t_max) {
                 rec.t = t_max;
                 rec.p = r.at(t_max);
-                rec.mat = Rc::new(Transparent{});
+                rec.mat = Arc::new(Transparent{});
                 return true;    
             }
         }

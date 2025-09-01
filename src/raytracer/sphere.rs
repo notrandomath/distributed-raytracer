@@ -6,11 +6,11 @@ use crate::raytracer::material::Material;
 pub struct Sphere {
     center: Point3,
     radius: f64,
-    mat: Rc<dyn Material>
+    mat: Arc<dyn Material>
 }
 
 impl Sphere {
-    pub fn new(center: &Point3, radius: f64, mat: Rc<dyn Material>) -> Self {
+    pub fn new(center: &Point3, radius: f64, mat: Arc<dyn Material>) -> Self {
         Sphere { center: *center, radius: f64::max(radius, 0.), mat}
     }
 

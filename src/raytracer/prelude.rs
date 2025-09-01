@@ -7,7 +7,7 @@ pub use crate::raytracer::colors::{Color, write_color};
 pub use crate::raytracer::interval::Interval;
 
 // Re-export common standard library items.
-pub use std::rc::Rc;
+pub use std::sync::Arc;
 pub use std::f64::INFINITY;
 pub use std::f64::consts::PI;
 pub use std::fs::File;
