@@ -23,15 +23,18 @@ pub async fn run_orchestrator() {
     while let Ok((stream, peer_addr)) = listener.accept().await {
         let (tx, rx) = tokio::sync::mpsc::channel::<OrchestratorServerMessage>(128);
         tokio::spawn(
-            run_async_server::<OrchestratorServerMessage, _, ()>
-            (ORCHESTRATOR_SERVER_CONNECTION_SOCKET, 
-                move |msg| { 
-                    let thread_msg = msg.clone();
-                    let thread_tx = tx.clone();
-                    let _ = tokio::spawn(async move {
-                        let _ = thread_tx.send(thread_msg.clone()).await.unwrap();
-                    });
-                })
+            run_async_server(
+                ORCHESTRATOR_SERVER_CONNECTION_SOCKET,
+                move |msg: &OrchestratorServerMessage| {
+                    // Clone the Arc to create a new shared reference for this call
+                    let tx_clone = tx.clone();
+                    let cloned_msg = msg.clone(); 
+                    async move {
+                        let _ = tx_clone.send(cloned_msg.clone()).await.unwrap();
+                        cloned_msg
+                    }
+                }
+            )
         );
 
         // Spawn a new asynchronous task for each connection.

@@ -1,6 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::pin::Pin;
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
-use std::thread;
 use std::time::Duration;
 use std::io::{Result};
 use futures_util::stream::SplitSink;
@@ -9,16 +9,19 @@ use serde::de::DeserializeOwned;
 use serde::{Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
+use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 use crate::distributed::config::{MULTICAST_ADDR, MULTICAST_PORT};
 use crate::distributed::messages::{ObjectServerMessage, RayServerMessage, ServerDiscoveryMessage, ServerType};
-use crate::distributed::ray_server::{RayServer};
+use crate::distributed::ray_server::RayServer;
 use crate::distributed::{object_server::ObjectServer};
 
-pub async fn run_async_server<M: Serialize + DeserializeOwned + Clone, F, U>(socket_addr: SocketAddrV4, mut handler: F) -> Result<()> 
-where 
-    F: FnMut(&mut M) -> U
+pub async fn run_async_server<M, F, U>(socket_addr: SocketAddrV4, handler: F) -> Result<()>
+where
+    M: Serialize + DeserializeOwned,
+    F: Fn(&M) -> U,
+    U: Future<Output = M>,
 {
     let listener  = TcpListener::bind(socket_addr).await?;
     while let Ok((mut stream, _)) = listener.accept().await {
@@ -30,11 +33,11 @@ where
         let mut buf = vec![0; message_len];
         stream.read_exact(&mut buf).await?;
         // Convert the bytes into a decoded server message
-        let (mut msg, _num_bytes_decoded): (M, usize) = bincode::serde::decode_from_slice(
+        let (msg, _num_bytes_decoded): (M, usize) = bincode::serde::decode_from_slice(
             &buf, bincode::config::standard()).unwrap();
-        handler(&mut msg);
+        let new_msg = handler(&msg).await;
         // Writes new message (msg was modified by self.handle_msg)
-        let message_bytes: Vec<u8> = bincode::serde::encode_to_vec(&msg, 
+        let message_bytes: Vec<u8> = bincode::serde::encode_to_vec(&new_msg, 
             bincode::config::standard()).unwrap();
         stream.write_all(message_bytes.as_slice()).await?;
     }
@@ -128,25 +131,41 @@ pub async fn run_server(port: u16, is_object_server: bool) {
     // Start the TCP server in a separate thread.
     let socket_addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
     if is_object_server {
-        let _ = tokio::spawn(async move {
-            let mut server = ObjectServer::new(Arc::clone(&should_stop));
-            run_async_server::<ObjectServerMessage, _, ()>(
-                socket_addr, 
-                move |msg| {
-                    server.handle_msg(msg);
+        let server = Arc::new(Mutex::new(ObjectServer::new(Arc::clone(&should_stop))));
+        tokio::spawn(
+            run_async_server(
+                socket_addr,
+                // The handler now takes the message by value
+                move |msg: &ObjectServerMessage| {
+                    // Clone the Arc to create a new shared reference for this call
+                    let server_clone = server.clone();
+                    let cloned_msg = msg.clone(); 
+                    async move {
+                        let mut server_locked = server_clone.lock().await;
+                        let new_msg = server_locked.handle_msg(&cloned_msg).await;
+                        new_msg
+                    }
                 }
-            ).await
-        }).await;
+            )
+        );
     } else {
-        let _ = tokio::spawn(async move {
-            let mut server = RayServer::new(Arc::clone(&should_stop));
-            run_async_server::<RayServerMessage, _, ()>(
-                socket_addr, 
-                move |msg| {
-                    server.handle_msg(msg);
+        let server = Arc::new(Mutex::new(RayServer::new(Arc::clone(&should_stop))));
+        tokio::spawn(
+            run_async_server(
+                socket_addr,
+                // The handler now takes the message by value
+                move |msg: &RayServerMessage| {
+                    // Clone the Arc to create a new shared reference for this call
+                    let server_clone = server.clone();
+                    let cloned_msg = msg.clone(); 
+                    async move {
+                        let mut server_locked = server_clone.lock().await;
+                        let new_msg = server_locked.handle_msg(&cloned_msg).await;
+                        new_msg
+                    }
                 }
-            ).await
-        }).await;
+            )
+        );
     }
 
     // Wait for both threads to finish (which they won't, as they run infinitely).

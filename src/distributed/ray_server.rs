@@ -99,7 +99,7 @@ impl RayServer {
         }
     }
 
-    pub fn handle_msg(&mut self, msg: &mut RayServerMessage) {
+    pub async fn handle_msg(&mut self, msg: &RayServerMessage) -> RayServerMessage {
         match msg.message_type {
             RayServerMessageType::Deregistration => {
                 self.should_stop.store(true, Ordering::SeqCst);
@@ -123,13 +123,10 @@ impl RayServer {
                 self.tx = tx;
             }
             RayServerMessageType::SendPixel => {
-                let thread_msg = msg.clone();
-                let thread_tx = self.tx.clone();
-                let _ = tokio::spawn(async move {
-                    let _ = thread_tx.send((thread_msg.pixel_index.unwrap(), thread_msg.ray.unwrap())).await;
-                });
+                let _ = self.tx.send((msg.clone().pixel_index.unwrap(), msg.clone().ray.unwrap())).await;
             }
             RayServerMessageType::CheckHit => {}
         }
+        msg.clone()
     }
 }

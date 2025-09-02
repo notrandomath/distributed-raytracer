@@ -19,7 +19,8 @@ impl ObjectServer {
         }
     }
 
-    pub fn handle_msg(&mut self, msg: &mut ObjectServerMessage) {
+    pub async fn handle_msg(&mut self, msg: &ObjectServerMessage) -> ObjectServerMessage {
+        let mut new_msg = msg.clone();
         match msg.message_type {
             ObjectServerMessageType::Deregistration => {
                 self.should_stop.store(true, Ordering::SeqCst);
@@ -32,12 +33,13 @@ impl ObjectServer {
             }
             ObjectServerMessageType::CheckHit => {
                 let mut entry = msg.ray_entry.clone().unwrap();
-                msg.ray_status = Some(ray_color_iteration(&mut entry, &self.objects));
-                msg.ray_entry = Some(entry);
+                new_msg.ray_status = Some(ray_color_iteration(&mut entry, &self.objects));
+                new_msg.ray_entry = Some(entry);
             }
             ObjectServerMessageType::PrintObjects => {
                 println!("Num Objects: {}", self.objects.len())
             }
         }
+        new_msg
     }
 }
