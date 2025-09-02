@@ -1,10 +1,12 @@
+use minifb::Window;
+
 use crate::raytracer::prelude::*;
 
 pub type Color = Vec3;
 
 const INTENSITY: Interval = Interval { min: 0.000, max: 0.999 };
 
-pub fn write_color(writer: &mut impl Write, pixel_color: &Color) -> Result<()> {
+pub fn color_to_rgb(pixel_color: &Color) -> (u32, u32, u32) {
     let mut r = pixel_color.x();
     let mut g = pixel_color.y();
     let mut b = pixel_color.z();
@@ -14,13 +16,32 @@ pub fn write_color(writer: &mut impl Write, pixel_color: &Color) -> Result<()> {
     g = linear_to_gamma(g);
     b = linear_to_gamma(b);
 
-    let rbyte = (255.999 * INTENSITY.clamp(r)) as i32;
-    let gbyte = (255.999 * INTENSITY.clamp(g)) as i32;
-    let bbyte = (255.999 * INTENSITY.clamp(b)) as i32;
+    let rbyte = (255.999 * INTENSITY.clamp(r)) as u32;
+    let gbyte = (255.999 * INTENSITY.clamp(g)) as u32;
+    let bbyte = (255.999 * INTENSITY.clamp(b)) as u32;
 
-    // Write out the pixel color components.
-    write!(writer, "{} {} {}\n", rbyte, gbyte, bbyte)?;
+    (rbyte, gbyte, bbyte)
+}
 
+pub fn write_color(
+    i: i32,
+    j: i32,
+    width: usize,
+    height: usize,
+    pixel_color: &Color,
+    window: &mut Window, 
+    color_buffer: &mut Vec<u32>,
+    raw_buffer: &mut Vec<Vec3>,
+    count_buffer: &mut Vec<i32>
+) -> Result<()> {
+    let index = j as usize * width + i as usize;
+    raw_buffer[index] += *pixel_color;
+    count_buffer[index] += 1;
+    let denom = if count_buffer[index] != 0 {count_buffer[index] as f64} else {1.};
+    let (rbyte, gbyte, bbyte) = color_to_rgb(&(raw_buffer[index] / denom));
+    let color: u32 = (255 << 24) | (rbyte << 16) | (gbyte << 8) | bbyte;
+    color_buffer[index] = color;
+    window.update_with_buffer(&color_buffer, width, height);
     Ok(())
 }
 

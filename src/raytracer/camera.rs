@@ -1,3 +1,5 @@
+use minifb::Window;
+
 use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::{Hittable, HitRecord};
 
@@ -10,12 +12,30 @@ pub struct PixelIndexEntry {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RayColorEntry {
-    pub current_ray: Ray,
-    pub current_dept: i32,
-    pub current_color: Color
+    pub attenuation: Color,
+    pub ray: Ray,
+    pub depth: i32,
+    pub color: Color
 } 
 
-#[derive(Default)]
+impl RayColorEntry {
+    pub fn new(ray: Ray, depth: i32) -> Self {
+        RayColorEntry {
+            attenuation: Color::new([1., 1., 1.]),
+            ray: ray,
+            depth: depth,
+            color: Color::default()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct RayColorStatus {
+    pub finished: bool,
+    pub hit_object_or_stop: bool
+}
+
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Camera {
     pub aspect_ratio: f64,
     pub image_width: i32,
@@ -31,7 +51,7 @@ pub struct Camera {
     pub focus_dist: f64,
 
     image_height: i32,
-    pixel_samples_scale: f64,
+    pub pixel_samples_scale: f64,
     center: Point3,
     pixel00_loc: Point3,
     pixel_delta_u: Vec3,
@@ -41,6 +61,76 @@ pub struct Camera {
     w: Vec3,
     defocus_disk_u: Vec3,
     defocus_disk_v: Vec3,
+}
+
+pub struct CameraRayIterator<'a> {
+    camera: &'a Camera,
+    i: i32,
+    j: i32,
+    sample: i32
+}
+
+impl<'a> CameraRayIterator<'a> {
+    fn new(camera: &'a Camera) -> Self {
+        CameraRayIterator {
+            camera,
+            i: 0,
+            j: 0,
+            sample: 0,
+        }
+    }
+}
+impl<'a> Iterator for CameraRayIterator<'a> {
+    type Item = (PixelIndexEntry, Ray);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.j >= self.camera.image_height {
+            return None;
+        }
+        let ray = self.camera.get_ray(self.i, self.j);
+        self.i += 1;
+        if self.i >= self.camera.image_width {
+            self.i = 0;
+            self.j += 1;
+            if self.j >= self.camera.image_width {
+                self.i = 0;
+                self.sample += 1;
+            }
+        }
+        Some((PixelIndexEntry {
+            pixel_i: self.i,
+            pixel_j: self.j,
+            pixel_sample_num: self.sample,
+        }, ray))
+    }
+}
+
+pub fn ray_color_iteration(r: &mut RayColorEntry, world: &dyn Hittable) -> RayColorStatus {
+    // performs a single iteration of ray_color
+    if r.depth <= 0 {
+        r.color = r.attenuation*Color::new([0.,0.,0.]);
+        return RayColorStatus{finished: true, hit_object_or_stop: true};
+    }
+
+    let mut rec: HitRecord = HitRecord::default();
+    if world.hit(&r.ray, Interval::new_min_max(0.001, INFINITY), &mut rec) {
+        let mut scattered: Ray = Ray::default();
+        let mut attenuation: Color = Color::default();
+        if rec.mat.scatter(&r.ray, &rec, &mut attenuation, &mut scattered) {
+            r.attenuation = r.attenuation * attenuation;
+            r.ray = scattered;
+            r.depth -= 1;
+            return RayColorStatus{finished: false, hit_object_or_stop: true};
+        } else {
+            r.color = r.attenuation*Color::new([0.,0.,0.]);
+            return RayColorStatus{finished: true, hit_object_or_stop: true};
+        }
+    }
+
+    let unit_direction: Vec3 = unit_vector(r.ray.direction());
+    let a = 0.5*(unit_direction.y() + 1.0);
+    r.color = r.attenuation *((1.0-a)*Color::new([1.0, 1.0, 1.0]) + a*Color::new([0.5, 0.7, 1.0]));
+    return RayColorStatus{finished: true, hit_object_or_stop: false};
 }
 
 impl Camera {
@@ -62,7 +152,11 @@ impl Camera {
         camera
     }
 
-    fn initialize(&mut self) {
+    pub fn iterate_rays(&self) -> CameraRayIterator {
+        CameraRayIterator::new(&self)
+    }
+
+    pub fn initialize(&mut self) {
         // Calculate the image height, and ensure that it's at least 1.
         self.image_height = (self.image_width as f64 / self.aspect_ratio) as i32;
         self.image_height = if self.image_height < 1 { 1 } else { self.image_height };
@@ -101,25 +195,30 @@ impl Camera {
         self.defocus_disk_v = self.v * defocus_radius;
     }
 
-    pub fn render(&mut self, world: &dyn Hittable, writer: &mut BufWriter<File>) -> Result<()> {
+    pub fn render(
+        &mut self, world: &dyn Hittable, 
+        window: &mut Window, 
+        color_buffer: &mut Vec<u32>,
+        raw_buffer: &mut Vec<Vec3>,
+        count_buffer: &mut Vec<i32>
+    ) -> Result<()> {
         self.initialize();
 
-        let mut err = stderr();
-        write!(writer, "P3\n{} {}\n255\n", self.image_width, self.image_height)?;
-        for j in 0..self.image_height {
-            write!(err, "\rScanlines remaining: {} ", self.image_height-j)?;
-            err.flush()?;
-            for i in 0..self.image_width {
-                let mut pixel_color: Color = Color::new_xyz(0.,0.,0.);
-                for _sample in 0..self.samples_per_pixel {
-                    let r: Ray = self.get_ray(i, j);
-                    pixel_color += self.ray_color(&r, self.max_depth, world);
+        for _sample in 0..self.samples_per_pixel {
+            for j in 0..self.image_height {
+                for i in 0..self.image_width {
+                    let mut pixel_color: Color = Color::new_xyz(0.,0.,0.);
+                        let r: Ray = self.get_ray(i, j);
+                        pixel_color += self.ray_color(&r, self.max_depth, world);
+                    write_color(
+                        i, j, 
+                        self.image_width as usize, 
+                        self.image_height as usize, 
+                        &pixel_color, window, color_buffer, raw_buffer, count_buffer
+                    )?;
                 }
-                write_color(writer, &(self.pixel_samples_scale * pixel_color))?;
             }
         }
-        write!(err, "\rDone.                                  \n")?;
-
         Ok(())
     }
 

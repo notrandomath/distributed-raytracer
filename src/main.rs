@@ -3,6 +3,7 @@ use dray_lib::raytracer::sphere::Sphere;
 use dray_lib::raytracer::hittable_list::HittableList;
 use dray_lib::raytracer::camera::Camera;
 use dray_lib::raytracer::material::*;
+use minifb::{Window, WindowOptions};
 
 const OUTPUT_FILENAME: &str = "img.ppm";
 
@@ -64,7 +65,25 @@ fn main() -> Result<()>  {
     camera.defocus_angle = 0.6;
     camera.focus_dist    = 10.0;
 
-    camera.render(&world, &mut writer)?;
+    // Initialize Image Buffer
+    let width = camera.image_width as usize;
+    let height = camera.image_width as usize;
+    let mut color_buffer: Vec<u32> = vec![0; width * height];
+    let mut raw_buffer: Vec<Vec3> = vec![Vec3::new([0., 0., 0.]); width * height];
+    let mut count_buffer: Vec<i32> = vec![0; width * height];
+
+    // Create the window.
+    let mut window = Window::new(
+        "Raytracer Image (normal)",
+        width,
+        height,
+        WindowOptions::default(),
+    ).unwrap();
+    
+    // Set a frame rate limit for efficiency.
+    window.set_target_fps(60);
+
+    camera.render(&world, &mut window, &mut color_buffer, &mut raw_buffer, &mut count_buffer)?;
 
     Ok(())
 }

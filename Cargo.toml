@@ -11,6 +11,7 @@ typetag = "*"
 tokio-tungstenite = { version = "*", features = ["native-tls"] }
 tokio = { version = "*", features = ["full"] }
 futures-util = "*"
+minifb = "*"
 
 [lib]
 name = "dray_lib"
@@ -27,3 +28,8 @@ path = "src/bin/run_server.rs"
 [[bin]]
 name = "client"
 path = "src/bin/run_client.rs"
+
+[profile.dev]
+panic = "abort"
+[profile.release]
+panic = "abort"

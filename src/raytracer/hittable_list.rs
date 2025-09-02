@@ -1,3 +1,4 @@
+use std::ops::{Index, IndexMut};
 use std::sync::Arc;
 use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::{Hittable, HitRecord};
@@ -37,6 +38,21 @@ impl HittableList {
     pub fn iter(&self) -> std::slice::Iter<'_, Arc<dyn Hittable>> {
         self.objects.iter()
     }
+
+    pub fn hits_vec(&self, r: &Ray, ray_t: Interval, _rec: &mut HitRecord) -> Vec<(usize, f64)> {
+        let mut temp_rec: HitRecord = HitRecord::default();
+        let mut hits: Vec<(usize, f64)> = Vec::new();
+
+        for (idx, object) in self.objects.iter().enumerate() {
+            if object.hit(r, Interval::new_min_max(ray_t.min, ray_t.max), &mut temp_rec) {
+                hits.push((idx, temp_rec.t));
+            }
+        }
+
+        hits.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        hits
+    }
 }
 
 #[typetag::serde]
@@ -55,5 +71,19 @@ impl Hittable for HittableList {
         }
 
         hit_anything
+    }
+}
+
+impl Index<usize> for HittableList {
+    type Output = Arc<dyn Hittable>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.objects[index]
+    }
+}
+
+impl IndexMut<usize> for HittableList {
+    fn index_mut(&mut self, _index: usize) -> &mut Self::Output {
+        &mut self.objects[_index]
     }
 }

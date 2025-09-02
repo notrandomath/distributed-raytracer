@@ -1,4 +1,4 @@
-pub mod server_common;
+pub mod distributed_common;
 pub mod object_server;
 pub mod ray_server;
 pub mod orchestrator_server;

@@ -1,15 +1,15 @@
 use dray_lib::distributed::orchestrator_server::run_orchestrator;
-use dray_lib::distributed::server_common::run_server;
-use dray_lib::distributed::config::{NUM_OBJ_SERVERS, NUM_RAY_SERVERS, ORCHESTRATOR_PORT, TCP_END_PORT, TCP_START_PORT};
-use std::net::SocketAddrV4;
+use dray_lib::distributed::distributed_common::run_server;
+use dray_lib::distributed::config::{NUM_OBJ_SERVERS, NUM_RAY_SERVERS, TCP_END_PORT, TCP_START_PORT};
 use std::thread::sleep;
 use std::time::Duration;
-use std::{net::{Ipv4Addr, TcpListener}, thread};
+use std::net::Ipv4Addr;
+use tokio::net::TcpListener;
 
-fn find_available_port_in_range(start_port: u16, end_port: u16) -> Option<u16> {
+async fn find_available_port_in_range(start_port: u16, end_port: u16) -> Option<u16> {
     for port in start_port..=end_port {
         // Attempt to bind to the port.
-        if let Ok(_listener) = TcpListener::bind((Ipv4Addr::LOCALHOST, port)) {
+        if let Ok(_listener) = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await {
             // If the bind is successful, the port is available.
             // We can immediately drop the listener to free the port for our main server.
             println!("✅ Found an available port: {}", port);
@@ -24,22 +24,28 @@ fn find_available_port_in_range(start_port: u16, end_port: u16) -> Option<u16> {
 async fn main() {
     let mut handles = vec![];
 
-    for i in 0..NUM_OBJ_SERVERS {
-        let handle = thread::spawn(move || {
-            println!("Starting server thread #{}", i);
-            run_server(
-                find_available_port_in_range(TCP_START_PORT, TCP_END_PORT).expect("No available port found"),
-                true
-            );
-        });
-        sleep(Duration::from_secs_f32(0.5));
+    for _i in 0..NUM_OBJ_SERVERS {
+        let handle = tokio::spawn(run_server(
+            find_available_port_in_range(TCP_START_PORT, TCP_END_PORT).await.expect("No available port found"),
+            true
+        ));
+        sleep(Duration::from_secs_f32(0.1));
         handles.push(handle);
     }
 
-    run_orchestrator(SocketAddrV4::new(Ipv4Addr::LOCALHOST, ORCHESTRATOR_PORT)).await;
+    for _i in 0..NUM_RAY_SERVERS {
+        let handle = tokio::spawn(run_server(
+            find_available_port_in_range(TCP_START_PORT, TCP_END_PORT).await.expect("No available port found"),
+            false
+        ));
+        sleep(Duration::from_secs_f32(0.1));
+        handles.push(handle);
+    }
+
+    run_orchestrator().await;
 
     // Wait for all server threads to finish
     for handle in handles {
-        handle.join().unwrap();
+        handle.await.unwrap();
     }
 }
