@@ -1,5 +1,4 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::pin::Pin;
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 use std::time::Duration;
 use std::io::{Result};
@@ -62,7 +61,7 @@ pub async fn send_websocket_message<T: Serialize, S: AsyncRead + AsyncWrite + Un
 
 pub async fn send_tcp_message<T: Serialize>(socket_addr: &SocketAddrV4, message: &T) -> Result<Vec<u8>> {    
     // 1. Establish the connection
-    let timeout_duration = Duration::from_secs(5);
+    let timeout_duration = Duration::from_secs(1);
     let mut stream = tokio::time::timeout(timeout_duration, TcpStream::connect(socket_addr)).await??;
 
     // 2. Write data to the server
@@ -128,16 +127,14 @@ pub async fn run_server(port: u16, is_object_server: bool) {
         )
     );
 
-    // Start the TCP server in a separate thread.
+    // Start the TCP servers in a separate thread.
     let socket_addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
     if is_object_server {
         let server = Arc::new(Mutex::new(ObjectServer::new(Arc::clone(&should_stop))));
         tokio::spawn(
             run_async_server(
                 socket_addr,
-                // The handler now takes the message by value
                 move |msg: &ObjectServerMessage| {
-                    // Clone the Arc to create a new shared reference for this call
                     let server_clone = server.clone();
                     let cloned_msg = msg.clone(); 
                     async move {
@@ -153,9 +150,7 @@ pub async fn run_server(port: u16, is_object_server: bool) {
         tokio::spawn(
             run_async_server(
                 socket_addr,
-                // The handler now takes the message by value
                 move |msg: &RayServerMessage| {
-                    // Clone the Arc to create a new shared reference for this call
                     let server_clone = server.clone();
                     let cloned_msg = msg.clone(); 
                     async move {

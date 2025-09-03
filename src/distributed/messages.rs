@@ -106,7 +106,7 @@ pub enum RayServerMessageType {
 pub struct RayServerMessage {
     pub message_type: RayServerMessageType,
     pub object_bbs: Option<Vec<Arc<BoundingBox>>>,
-    pub object_servers: Option<HashMap<usize, SocketAddrV4>>,
+    pub object_servers: Option<HashMap<usize, Vec<SocketAddrV4>>>,
     pub camera: Option<Camera>,
     pub pixel_index: Option<PixelIndexEntry>,
     pub ray: Option<Ray>,
@@ -126,7 +126,7 @@ impl RayServerMessage {
 
     pub fn new_share_params(
         object_bbs: &Vec<Arc<BoundingBox>>,
-        server_directory: &HashMap<usize, SocketAddrV4>,
+        server_directory: &HashMap<usize, Vec<SocketAddrV4>>,
         camera: &Camera
     ) -> Self {
         RayServerMessage {

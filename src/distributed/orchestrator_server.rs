@@ -9,7 +9,7 @@ use crate::raytracer::bounding_box::BoundingBox;
 use crate::raytracer::camera::{Camera};
 use std::collections::HashMap;
 use std::time::Duration;
-use crate::distributed::config::{MULTICAST_ADDR, MULTICAST_PORT, ORCHESTRATOR_CLIENT_CONNECTION_SOCKET, ORCHESTRATOR_SERVER_CONNECTION_SOCKET};
+use crate::distributed::config::{MULTICAST_ADDR, MULTICAST_PORT, NUM_REPEAT_OBJECT, ORCHESTRATOR_CLIENT_CONNECTION_SOCKET, ORCHESTRATOR_SERVER_CONNECTION_SOCKET};
 use std::sync::Arc;
 use tokio;
 use futures_util::{StreamExt};
@@ -52,7 +52,7 @@ pub struct OrchestratorServer{
     rx: tokio::sync::mpsc::Receiver<OrchestratorServerMessage>,
     server_directory: [Vec<SocketAddrV4>; NUM_SERVER_TYPES],
     boxes: Vec<Arc<BoundingBox>>,
-    object_map: HashMap<usize, SocketAddrV4>,
+    box_map: HashMap<usize, Vec<SocketAddrV4>>,
     camera: Camera
 }
 
@@ -73,7 +73,7 @@ impl OrchestratorServer {
             rx: rx,
             server_directory: std::array::from_fn(|_| Vec::new()),
             boxes: Vec::new(),
-            object_map: HashMap::new(),
+            box_map: HashMap::new(),
             camera: Camera::default()
         }
     }
@@ -119,20 +119,25 @@ impl OrchestratorServer {
     fn create_bounding_volumes(&mut self) {
         let n = self.server_directory[ServerType::Object as usize].len();
         let mut cur_i: usize = 0;
-        for a in (-10..=10).step_by(4) {
-            for b in (-10..=10).step_by(4) {
-                let bv = BoundingBox::new_xyz(
-                    if a == -10 {-1e6} else {(a as f64) - 4.},
-                    if a == 10 {1e6} else {(a as f64) + 4.},
-                    -1e6,
-                    1e6,
-                    if b == -10 {-1e6} else {(b as f64) - 4.},
-                    if b == 10 {1e6} else {(b as f64) + 4.},
-                );
-                self.object_map.insert(self.boxes.len(), self.server_directory[ServerType::Object as usize][cur_i]);
-                let new_box = Arc::new(bv);
-                self.boxes.push(new_box.clone());
-                cur_i = (cur_i+1)%n;
+        for _ in 0..NUM_REPEAT_OBJECT {
+            for a in (-10..=10).step_by(4) {
+                for b in (-10..=10).step_by(4) {
+                    let bv = BoundingBox::new_xyz(
+                        if a == -10 {-1e6} else {(a as f64) - 4.},
+                        if a == 10 {1e6} else {(a as f64) + 4.},
+                        -1e6,
+                        1e6,
+                        if b == -10 {-1e6} else {(b as f64) - 4.},
+                        if b == 10 {1e6} else {(b as f64) + 4.},
+                    );
+                    if !self.box_map.contains_key(&self.boxes.len()) {
+                        self.box_map.insert(self.boxes.len(), Vec::new());
+                    }
+                    self.box_map.get_mut(&self.boxes.len()).unwrap().push(self.server_directory[ServerType::Object as usize][cur_i]);
+                    let new_box = Arc::new(bv);
+                    self.boxes.push(new_box.clone());
+                    cur_i = (cur_i+1)%n;
+                }
             }
         }
     }
@@ -147,10 +152,12 @@ impl OrchestratorServer {
                 for (index, aabb) in self.boxes.iter().enumerate() {
                     let new_sphere = msg.object.clone().unwrap();
                     if aabb.intersect_sphere(&new_sphere) {
-                        let _ = send_tcp_message(
-                            &self.object_map[&index], 
-                            &ObjectServerMessage::new_object_add(new_sphere.clone())
-                        ).await;
+                        for address in self.box_map[&index].iter() {
+                            let _ = send_tcp_message(
+                                address, 
+                                &ObjectServerMessage::new_object_add(new_sphere.clone())
+                            ).await;
+                        }
                     }
                 }
             }
@@ -219,7 +226,7 @@ impl OrchestratorServer {
         for i in 0..self.server_directory[ServerType::Ray as usize].len() {
             let _ = send_tcp_message(
                 &self.server_directory[ServerType::Ray as usize][i], 
-                &RayServerMessage::new_share_params(&self.boxes, &self.object_map, &self.camera)
+                &RayServerMessage::new_share_params(&self.boxes, &self.box_map, &self.camera)
             ).await;
         }
     }

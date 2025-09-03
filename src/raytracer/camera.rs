@@ -1,4 +1,6 @@
 use minifb::Window;
+use rand::seq::SliceRandom;
+use rand::RngCore;
 
 use crate::raytracer::prelude::*;
 use crate::raytracer::hittable::{Hittable, HitRecord};
@@ -29,7 +31,7 @@ impl RayColorEntry {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct RayColorStatus {
     pub finished: bool,
     pub hit_object_or_stop: bool
@@ -66,41 +68,49 @@ pub struct Camera {
 pub struct CameraRayIterator<'a> {
     camera: &'a Camera,
     i: i32,
-    j: i32,
-    sample: i32
+    n: i32,
+    shuffled_seq: Vec<i32>
 }
 
 impl<'a> CameraRayIterator<'a> {
     fn new(camera: &'a Camera) -> Self {
+        let n = camera.image_width * camera.image_height;
+        let shuffled = (0..n).collect::<Vec<i32>>();
+
         CameraRayIterator {
-            camera,
+            camera: camera,
             i: 0,
-            j: 0,
-            sample: 0,
+            n: n,
+            shuffled_seq: shuffled
         }
     }
 }
+
 impl<'a> Iterator for CameraRayIterator<'a> {
     type Item = (PixelIndexEntry, Ray);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.j >= self.camera.image_height {
+        if self.i >= self.n {
             return None;
         }
-        let ray = self.camera.get_ray(self.i, self.j);
-        self.i += 1;
-        if self.i >= self.camera.image_width {
-            self.i = 0;
-            self.j += 1;
-            if self.j >= self.camera.image_width {
-                self.i = 0;
-                self.sample += 1;
-            }
+        if self.i % self.n == 0 {
+            self.shuffled_seq.shuffle(&mut rand::rng());
         }
+        if self.i % self.camera.image_width == 0 {
+            println!("line {} / {} (sample {})", (self.i / self.camera.image_width) % self.camera.image_height, self.camera.image_height, self.i / self.n);
+        }
+
+        let cur = self.shuffled_seq[(self.i % self.n) as usize];
+        let pixel_j = cur / self.camera.image_width;
+        let pixel_i = cur % self.camera.image_width;
+        let pixel_sample_num = self.i / self.n;
+        let ray = self.camera.get_ray(pixel_i, pixel_j);
+        
+        self.i += 1;
         Some((PixelIndexEntry {
-            pixel_i: self.i,
-            pixel_j: self.j,
-            pixel_sample_num: self.sample,
+            pixel_i: pixel_i,
+            pixel_j: pixel_j,
+            pixel_sample_num: pixel_sample_num,
         }, ray))
     }
 }
@@ -204,12 +214,15 @@ impl Camera {
     ) -> Result<()> {
         self.initialize();
 
-        for _sample in 0..self.samples_per_pixel {
+        for sample in 0..self.samples_per_pixel {
             for j in 0..self.image_height {
                 for i in 0..self.image_width {
+                    if i == 0 {
+                        println!("line {} / {} (sample {})", j, self.image_height, sample);
+                    }
                     let mut pixel_color: Color = Color::new_xyz(0.,0.,0.);
-                        let r: Ray = self.get_ray(i, j);
-                        pixel_color += self.ray_color(&r, self.max_depth, world);
+                    let r: Ray = self.get_ray(i, j);
+                    pixel_color += self.ray_color(&r, self.max_depth, world);
                     write_color(
                         i, j, 
                         self.image_width as usize, 

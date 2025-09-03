@@ -1,13 +1,15 @@
+use core::time;
 use std::net::{SocketAddrV4};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use tokio::sync::mpsc;
 use bincode;
+use tokio::time::sleep;
 use crate::distributed::config::ORCHESTRATOR_SERVER_CONNECTION_SOCKET;
 use crate::distributed::messages::{
     ObjectServerMessage, OrchestratorServerMessage, RayServerMessage, RayServerMessageType
 };
 use crate::distributed::distributed_common::send_tcp_message;
-use crate::raytracer::camera::{Camera, PixelIndexEntry, RayColorEntry};
+use crate::raytracer::camera::{Camera, PixelIndexEntry, RayColorEntry, RayColorStatus};
 use crate::raytracer::bounding_box::BoundingBox;
 use crate::raytracer::hittable::{HitRecord, Hittable};
 use crate::raytracer::hittable_list::HittableList;
@@ -17,7 +19,7 @@ use std::collections::HashMap;
 struct RayProcessor {
     ray_entries: HashMap<PixelIndexEntry, RayColorEntry>,
     bounding_boxes: HittableList,
-    object_servers: HashMap<usize, SocketAddrV4>,
+    object_servers: HashMap<usize, Vec<SocketAddrV4>>,
     camera: Camera,
     rx: mpsc::Receiver<(PixelIndexEntry, Ray)>
 }
@@ -25,7 +27,7 @@ struct RayProcessor {
 impl RayProcessor {
     pub fn new(
         bounding_boxes: Vec<Arc<BoundingBox>>,
-        object_servers: HashMap<usize, SocketAddrV4>,
+        object_servers: HashMap<usize, Vec<SocketAddrV4>>,
         camera: Camera,
         rx: mpsc::Receiver<(PixelIndexEntry, Ray)>
     ) -> Self {
@@ -47,24 +49,42 @@ impl RayProcessor {
                 self.ray_entries.insert(pixel_idx.clone(), 
                 RayColorEntry::new(ray.clone(), self.camera.max_depth));
             }
-            println!("{} {} {}", pixel_idx.pixel_i, pixel_idx.pixel_j, pixel_idx.pixel_sample_num);
             loop {
                 let mut finished: bool = true;
-                println!("{}", self.ray_entries[&pixel_idx].depth);
+                let mut status: RayColorStatus = RayColorStatus::default();
                 let mut first_hit: RayColorEntry = self.ray_entries[&pixel_idx].clone();
                 for (aabb_idx, _distance) in self.bounding_boxes.hits_vec(
                     &self.ray_entries[&pixel_idx].ray, 
                     Interval::new_min_max(0.001, INFINITY), 
                     &mut HitRecord::default()).iter() 
                 {
-                    let response = send_tcp_message(
-                        &self.object_servers[&aabb_idx], 
-                        &ObjectServerMessage::new_ray_check(self.ray_entries[&pixel_idx].clone()
-                    )).await.unwrap();
-                    let (msg, _num_bytes_decoded): (ObjectServerMessage, usize) = bincode::serde::decode_from_slice(
-                        &response, bincode::config::standard()).unwrap();
-                    first_hit = msg.ray_entry.unwrap();
-                    let status = msg.ray_status.unwrap();
+                    let mut server_idx: usize = 0;
+                    loop {
+                        let response = send_tcp_message(
+                            &self.object_servers[&aabb_idx][server_idx], 
+                            &ObjectServerMessage::new_ray_check(self.ray_entries[&pixel_idx].clone()
+                        )).await;
+                        match response {
+                            Ok(response_bytes) => {
+                                let (msg, _num_bytes_decoded): (ObjectServerMessage, usize) = bincode::serde::decode_from_slice(
+                                    &response_bytes, bincode::config::standard()).unwrap();
+                                first_hit = msg.ray_entry.unwrap();
+                                status = msg.ray_status.unwrap();
+                                break;
+                            }
+                            Err(_) => {
+                                if server_idx == self.object_servers[&aabb_idx].len()-1 {
+                                    sleep(time::Duration::from_secs(5)).await;
+                                    server_idx = 0;
+                                } else {
+                                    // timeout or some other error, so skip to other server that hosts object
+                                    server_idx += 1;
+                                }
+                                
+                            }
+                        }
+                    }
+
                     finished = status.finished & finished;
                     if status.hit_object_or_stop {
                         break;
